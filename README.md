@@ -1,0 +1,1 @@
+# CE-5506-Reconocimiento-de-Patrones
