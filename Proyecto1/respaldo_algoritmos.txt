@@ -122,3 +122,87 @@ decision_tree = create_decision_node(X_train_wines, y_train_wines)
 
 # Evaluar el árbol de decisión en el conjunto de prueba
 y_pred = X_test_wines.apply(lambda x: predict(x, decision_tree), axis=1)
+
+
+
+
+
+class DecisionTree:
+    def __init__(self, data, target_column):
+        self.data = data
+        self.target_column = target_column
+
+    # Función para dividir los datos en dos grupos en función de un valor de corte
+    def split_data(self, split_column, split_value):
+        data_below = self.data[self.data[split_column] <= split_value]
+        data_above = self.data[self.data[split_column] > split_value]
+        return data_below, data_above
+
+    # Función para calcular la entropía de un conjunto de datos
+    def entropy(self, data, target_column):
+        _, counts = np.unique(data[target_column], return_counts=True)
+        probabilities = counts / counts.sum()
+        entropy = sum(probabilities * -np.log2(probabilities))
+        return entropy
+
+    # Función para calcular la ganancia de información al dividir un conjunto de datos en dos grupos
+    def information_gain(self, split_column):
+        original_entropy = self.entropy(self.data, self.target_column)
+        data_below, data_above = self.split_data(split_column, self.data[split_column].median())
+        n = len(self.data)
+        n_below = len(data_below)
+        n_above = len(data_above)
+        below_weight = n_below / n
+        above_weight = n_above / n
+        weighted_entropy = below_weight * self.entropy(data_below, self.target_column) + above_weight * self.entropy(data_above, self.target_column)
+        information_gain = original_entropy - weighted_entropy
+        return information_gain
+
+    # Función para encontrar el mejor atributo de división para un conjunto de datos
+    def find_best_split(self):
+        information_gains = []
+        for column in self.data.columns:
+            if column == self.target_column:
+                continue
+            information_gain1 = self.information_gain(column)
+            information_gains.append((column, information_gain1))
+        best_split_column, best_information_gain = max(information_gains, key=lambda x: x[1])
+        return best_split_column
+
+    # Función para crear un nodo de decisión en el árbol
+    def create_decision_node(self, data):
+        # Si todos los valores en el conjunto de datos tienen la misma etiqueta, crear un nodo hoja
+        if len(np.unique(self.data[self.target_column])) == 1:
+            return self.data[self.target_column].iloc[0]
+        
+        # Si no hay más atributos para dividir, crear un nodo hoja con la etiqueta más común
+        if len(self.data.columns) == 1:
+            return np.bincount(self.data[self.target_column]).argmax()
+        
+        # Encontrar el mejor atributo de división para el conjunto de datos
+        best_split_column = self.find_best_split()
+        
+        # Crear un nodo de decisión con el mejor atributo de división
+        decision_node = {'split_column': best_split_column}
+        median = self.data[best_split_column].median()
+        decision_node['median'] = median
+        
+        # Dividir los datos en dos grupos
+        data_below, data_above = self.split_data(best_split_column, median)
+        
+        # Recursivamente crear los hijos del nodo de decisión
+        decision_node['below'] = self.create_decision_node(data_below)
+        decision_node['above'] = self.create_decision_node(data_above)
+        
+        return decision_node
+
+    # Función para predecir la etiqueta de un ejemplo utilizando el árbol de decisión
+    def predict(self, example, decision_tree):
+        if type(decision_tree) != dict:
+            return decision_tree
+        split_column = decision_tree['split_column']
+        median = decision_tree['median']
+        if example[split_column] <= median:
+            return predict(example, decision_tree['below'])
+        else:
+            return predict(example, decision_tree['above'])
